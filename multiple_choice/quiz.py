@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI quiz runner for multiple-choice questions with failure tracking."""
+"""CLI quiz runner for multiple-choice questions with failure and seen tracking."""
 
 import re
 import json
@@ -18,6 +18,26 @@ CYAN   = "\033[96m"
 BOLD   = "\033[1m"
 DIM    = "\033[2m"
 RESET  = "\033[0m"
+
+
+# ── Topics ─────────────────────────────────────────────────────────────────────
+
+class Topic:
+    def __init__(self, key, filename, label):
+        self.key      = key       # used as topic ID and --topic choice
+        self.filename = filename  # MCQ markdown file
+        self.label    = label     # display name
+
+TOPICS = [
+    Topic('python',     'python_mcq.md',     'Python'),
+    Topic('kubernetes', 'kubernetes_mcq.md', 'Kubernetes'),
+    Topic('linux',      'linux_mcq.md',      'Linux'),
+    Topic('typescript', 'typescript_mcq.md', 'TypeScript'),
+    Topic('go',         'go_mcq.md',         'Go'),
+    Topic('react',      'react_mcq.md',      'React'),
+]
+
+TOPIC_MAP = {t.key: t for t in TOPICS}
 
 
 # ── Parsing ────────────────────────────────────────────────────────────────────
@@ -69,9 +89,7 @@ def parse_answers(filepath):
         if not section.strip():
             continue
         first = section.split('\n')[0].lower()
-        topic = ('python' if 'python' in first
-                 else 'kubernetes' if 'kubernetes' in first
-                 else None)
+        topic = next((t.key for t in TOPICS if t.key in first), None)
         if not topic:
             continue
         answers[topic] = {}
@@ -90,7 +108,7 @@ def load_state():
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE) as f:
             return json.load(f)
-    return {"failed": []}
+    return {"failed": [], "seen": []}
 
 
 def save_state(state):
@@ -101,12 +119,10 @@ def save_state(state):
 # ── Display helpers ────────────────────────────────────────────────────────────
 
 def _clean(text):
-    """Strip inline backticks."""
     return re.sub(r'`([^`]*)`', r'\1', text)
 
 
 def _render_question_text(text):
-    """Convert fenced code blocks to indented plain text."""
     def indent_block(m):
         code = m.group(1).rstrip()
         indented = '\n'.join('    ' + line for line in code.split('\n'))
@@ -117,8 +133,8 @@ def _render_question_text(text):
 
 
 def display_question(q, index, total):
-    topic_label = q['topic'].capitalize()
-    print(f"\n{CYAN}{BOLD}[{index}/{total}] {topic_label} — Q{q['num']}{RESET}")
+    label = TOPIC_MAP[q['topic']].label
+    print(f"\n{CYAN}{BOLD}[{index}/{total}] {label} — Q{q['num']}{RESET}")
     print(f"\n{_render_question_text(q['text'])}\n")
     for letter in 'ABCD':
         print(f"  {BOLD}{letter}){RESET} {_clean(q['options'][letter])}")
@@ -131,6 +147,8 @@ def run_quiz(questions, answers):
     total = len(questions)
     correct = 0
     wrong_ids = set()
+    answered_qs = []
+    quit_early = False
 
     for i, q in enumerate(questions, 1):
         display_question(q, i, total)
@@ -140,14 +158,20 @@ def run_quiz(questions, answers):
                 raw = input("Answer [A/B/C/D]  (q = quit): ").strip().upper()
             except (EOFError, KeyboardInterrupt):
                 print("\nQuiz interrupted.")
-                sys.exit(0)
+                quit_early = True
+                break
             if raw == 'Q':
                 print("\nQuiz interrupted.")
-                sys.exit(0)
+                quit_early = True
+                break
             if raw in ('A', 'B', 'C', 'D'):
                 break
             print("  Please enter A, B, C, or D.")
 
+        if quit_early:
+            break
+
+        answered_qs.append(q)
         correct_ans, explanation = answers[q['topic']][q['num']]
 
         if raw == correct_ans:
@@ -162,74 +186,106 @@ def run_quiz(questions, answers):
         if explanation:
             print(f"  {DIM}{_clean(explanation)}{RESET}")
 
-    return correct, wrong_ids
+    return correct, wrong_ids, answered_qs
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Multiple-choice quiz with failure tracking',
+        description='Multiple-choice quiz with failure and seen tracking',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 examples:
   quiz.py                   run all questions
+  quiz.py --unseen          only questions not yet attempted
   quiz.py --failed          retry only previously failed questions
   quiz.py --topic python    only Python questions
   quiz.py --shuffle         randomise order
-  quiz.py --stats           show failure stats and exit
-  quiz.py --clear           reset failure history
+  quiz.py --stats           show seen/failed stats and exit
+  quiz.py --clear           reset all history (seen + failed)
 """,
     )
+    parser.add_argument('--unseen',  '-u', action='store_true',
+                        help='Only show questions not yet attempted')
     parser.add_argument('--failed',  '-f', action='store_true',
                         help='Only show previously failed questions')
-    parser.add_argument('--topic',   '-t', choices=['python', 'kubernetes'],
+    parser.add_argument('--topic',   '-t',
+                        choices=[t.key for t in TOPICS],
                         help='Filter by topic')
     parser.add_argument('--shuffle', '-s', action='store_true',
                         help='Randomise question order')
     parser.add_argument('--stats',         action='store_true',
-                        help='Show failure statistics and exit')
+                        help='Show seen/failed statistics and exit')
     parser.add_argument('--clear',         action='store_true',
-                        help='Reset failed-questions history')
+                        help='Reset all history (seen + failed)')
     args = parser.parse_args()
+
+    if args.unseen and args.failed:
+        print("Error: --unseen and --failed are mutually exclusive.")
+        sys.exit(1)
 
     state = load_state()
     failed_ids = set(state.get('failed', []))
+    seen_ids   = set(state.get('seen',   []))
 
     if args.clear:
-        save_state({'failed': []})
-        print("Failed-questions history cleared.")
+        save_state({'failed': [], 'seen': []})
+        print("History cleared (seen + failed).")
         return
 
-    py_qs  = parse_questions(os.path.join(SCRIPT_DIR, 'python_mcq.md'),    'python')
-    k8s_qs = parse_questions(os.path.join(SCRIPT_DIR, 'kubernetes_mcq.md'),'kubernetes')
-    all_qs = py_qs + k8s_qs
+    qs_by_topic = {
+        t.key: parse_questions(os.path.join(SCRIPT_DIR, t.filename), t.key)
+        for t in TOPICS
+    }
+    all_qs  = [q for t in TOPICS for q in qs_by_topic[t.key]]
     answers = parse_answers(os.path.join(SCRIPT_DIR, 'answers.md'))
 
     if args.stats:
-        all_ids = {q['id'] for q in all_qs}
+        all_ids      = {q['id'] for q in all_qs}
+        seen_valid   = seen_ids & all_ids
+        unseen_ids   = all_ids - seen_valid
         still_failed = failed_ids & all_ids
-        py_failed  = {fid for fid in still_failed if fid.startswith('python')}
-        k8s_failed = {fid for fid in still_failed if fid.startswith('kubernetes')}
+
+        unseen_count = {
+            t.key: sum(1 for q in qs_by_topic[t.key] if q['id'] not in seen_valid)
+            for t in TOPICS
+        }
+
+        seen_parts   = ', '.join(
+            f"{t.label} {len(qs_by_topic[t.key]) - unseen_count[t.key]}"
+            for t in TOPICS
+        )
+        unseen_parts = ', '.join(
+            f"{t.label} {unseen_count[t.key]}"
+            for t in TOPICS
+        )
+
         print(f"\n{BOLD}Quiz statistics{RESET}")
         print(f"  Total questions : {len(all_qs)}")
-        print(f"  On failed list  : {len(still_failed)}")
-        if py_failed:
-            nums = sorted(int(fid.split('_Q')[1]) for fid in py_failed)
-            print(f"  {RED}Python failed   :{RESET} Q{', Q'.join(map(str, nums))}")
-        if k8s_failed:
-            nums = sorted(int(fid.split('_Q')[1]) for fid in k8s_failed)
-            print(f"  {RED}Kubernetes failed:{RESET} Q{', Q'.join(map(str, nums))}")
+        print(f"  Seen            : {len(seen_valid)}  ({DIM}{seen_parts}{RESET})")
+        print(f"  {YELLOW}Unseen          : {len(unseen_ids)}{RESET}  ({DIM}{unseen_parts}{RESET})")
+        print(f"  {RED}On failed list  : {len(still_failed)}{RESET}")
+        for t in TOPICS:
+            failed_for_topic = {fid for fid in still_failed if fid.startswith(t.key + '_')}
+            if failed_for_topic:
+                nums = sorted(int(fid.split('_Q')[1]) for fid in failed_for_topic)
+                print(f"  {RED}{t.label} failed{RESET}: Q{', Q'.join(map(str, nums))}")
         if not still_failed:
             print(f"  {GREEN}No failures on record.{RESET}")
         print()
         return
 
-    # Apply filters
     if args.topic:
         all_qs = [q for q in all_qs if q['topic'] == args.topic]
 
-    if args.failed:
+    if args.unseen:
+        all_qs = [q for q in all_qs if q['id'] not in seen_ids]
+        if not all_qs:
+            print(f"\n{GREEN}No unseen questions — you've attempted everything!{RESET}\n")
+            return
+        print(f"\n{YELLOW}{BOLD}Running {len(all_qs)} unseen question(s)...{RESET}")
+    elif args.failed:
         all_qs = [q for q in all_qs if q['id'] in failed_ids]
         if not all_qs:
             print(f"\n{GREEN}No failed questions to retry — you're all caught up!{RESET}\n")
@@ -241,15 +297,21 @@ examples:
     if args.shuffle:
         random.shuffle(all_qs)
 
-    correct, wrong_ids = run_quiz(all_qs, answers)
-    total = len(all_qs)
+    correct, wrong_ids, answered_qs = run_quiz(all_qs, answers)
+    total = len(answered_qs)
 
-    # Update persistent failure list:
-    #   - remove questions answered correctly this run
-    #   - add questions answered incorrectly this run
-    answered_ids = {q['id'] for q in all_qs}
+    if not answered_qs:
+        print("No questions answered — nothing saved.")
+        return
+
+    answered_ids = {q['id'] for q in answered_qs}
+    seen_ids  |= answered_ids
     failed_ids = (failed_ids - (answered_ids - wrong_ids)) | wrong_ids
-    save_state({'failed': sorted(failed_ids)})
+    save_state({'failed': sorted(failed_ids), 'seen': sorted(seen_ids)})
+
+    partial = total < len(all_qs)
+    if partial:
+        print(f"  {YELLOW}Progress saved ({total}/{len(all_qs)} answered).{RESET}")
 
     pct = int(100 * correct / total) if total else 0
     color = GREEN if pct >= 70 else (YELLOW if pct >= 50 else RED)
@@ -260,8 +322,8 @@ examples:
         for q in all_qs:
             if q['id'] in wrong_ids:
                 nums_by_topic.setdefault(q['topic'], []).append(q['num'])
-        for topic, nums in sorted(nums_by_topic.items()):
-            label = topic.capitalize()
+        for topic_key, nums in sorted(nums_by_topic.items()):
+            label = TOPIC_MAP[topic_key].label
             print(f"  {RED}Failed {label}{RESET}: Q{', Q'.join(map(str, sorted(nums)))}")
         print(f"\n  Run {BOLD}quiz.py --failed{RESET} to retry these questions.")
     else:

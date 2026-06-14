@@ -361,3 +361,93 @@ C) Monitors node health and reports to the control plane
 D) Maintains network rules (iptables/ipvs) to implement Service virtual IPs and load balancing
 
 ---
+
+**Q41.** A Pod's readiness probe fails continuously for 30 seconds. What is the effect?
+
+A) The Pod is removed from the endpoints of any Service that selects it, but the container keeps running and is not restarted
+B) The container is immediately restarted by kubelet
+C) The Pod is evicted from its node
+D) The Pod phase changes to `Failed`
+
+---
+
+**Q42.** A PVC is deleted and its bound PV has `reclaimPolicy: Delete`. What happens?
+
+A) The PV is marked `Released` and must be manually reclaimed by an admin
+B) The PV object and its underlying storage (e.g. the cloud disk) are automatically deleted
+C) The PV is immediately re-bound to the next pending PVC
+D) The PV transitions to a `Failed` state until manually cleaned up
+
+---
+
+**Q43.** A container exits with exit code 1, and the Pod has `restartPolicy: Never`. What phase does the Pod enter?
+
+A) `Stopped`
+B) `Completed`
+C) `Failed`
+D) `Terminated`
+
+---
+
+**Q44.** Which control plane component is responsible for reconciling actual replica counts with the desired count declared in a Deployment?
+
+A) kube-apiserver
+B) kube-scheduler
+C) etcd
+D) kube-controller-manager
+
+---
+
+**Q45.** What is the key difference between `ResourceQuota` and `LimitRange`?
+
+A) `ResourceQuota` sets namespace-wide aggregate limits; `LimitRange` sets default, min, and max values per individual Pod or container
+B) They are interchangeable — only naming convention differs
+C) `LimitRange` is namespace-wide; `ResourceQuota` applies per Pod
+D) `ResourceQuota` only covers CPU; `LimitRange` covers both CPU and memory
+
+---
+
+**Q46.** When you create a Service of type `ClusterIP`, what component makes the virtual IP actually routable inside the cluster?
+
+A) The CNI plugin programs routes for each Service VIP
+B) kube-proxy on each node programs iptables/ipvs rules that DNAT traffic destined for the VIP to a backend Pod IP
+C) The API server updates the kernel routing table directly
+D) etcd stores routing information that nodes read on demand
+
+---
+
+**Q47.** A NetworkPolicy selects all pods in a namespace (empty `podSelector: {}`) and specifies no `ingress` rules at all. What is the effect?
+
+A) All traffic is allowed — an empty policy has no effect
+B) All egress is denied; ingress is unaffected
+C) All ingress to the selected pods is denied; egress is unaffected
+D) Both ingress and egress are denied
+
+---
+
+**Q48.** A Pod spec lists two init containers: `init-a` then `init-b`. What is guaranteed about their execution?
+
+A) Both run in parallel before the main containers start
+B) The main container starts as soon as `init-a` completes, while `init-b` may still be running
+C) `init-b` runs first; the order in the spec is reversed at runtime
+D) `init-a` completes first, then `init-b` completes, and only then do main containers start
+
+---
+
+**Q49.** A Pod has one container with `requests.memory: 128Mi` and `limits.memory: 256Mi`. Which QoS class does the Pod receive?
+
+A) Burstable
+B) Guaranteed
+C) BestEffort
+D) Limited
+
+---
+
+**Q50.** What does `kubectl describe pod <name>` show that `kubectl get pod <name> -o yaml` does NOT?
+
+A) The raw Pod manifest in full detail
+B) A human-readable summary including Events, container states, probe results, and conditions
+C) The container logs for the most recent run
+D) The NetworkPolicies currently applied to the Pod
+
+---

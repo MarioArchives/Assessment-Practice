@@ -572,3 +572,160 @@ C) `AttributeError`
 D) `[1]`
 
 ---
+
+**Q41.** What is the idiomatic Python fix for a mutable default argument?
+
+```python
+# Broken — shares state across calls:
+def append_to(elem, to=[]):
+    to.append(elem)
+    return to
+```
+
+A) Use `None` as the default and create a new list inside the body: `if to is None: to = []`
+B) Use `list()` as the default: `def append_to(elem, to=list())`
+C) Annotate the type: `def append_to(elem, to: list = [])`
+D) Call `to = to.copy()` at the start of the function every time
+
+---
+
+**Q42.** What does `yield from subgen` enable inside a generator that a plain `for x in subgen: yield x` loop does NOT?
+
+A) Yielding values from an infinite generator
+B) Transparent two-way delegation: `send()` and `throw()` calls from the outer caller are forwarded to `subgen`
+C) Returning a value from the generator function
+D) Iterating over multiple generators sequentially
+
+---
+
+**Q43.** What is the output?
+
+```python
+count = 0
+
+def increment():
+    count += 1
+    return count
+
+try:
+    print(increment())
+except UnboundLocalError:
+    print("error")
+```
+
+A) `1`
+B) `0`
+C) `error`
+D) `NameError`
+
+---
+
+**Q44.** What is the output?
+
+```python
+import sys
+
+try:
+    sys.exit(1)
+except Exception as e:
+    print("Exception caught")
+except BaseException as e:
+    print("BaseException caught")
+```
+
+A) `Exception caught`
+B) Nothing — the program exits silently before reaching either handler
+C) Both lines print
+D) `BaseException caught`
+
+---
+
+**Q45.** What is the output (assuming a working multiprocessing environment)?
+
+```python
+from multiprocessing import Pool
+
+def square(n):
+    return n * n
+
+with Pool(2) as p:
+    print(p.map(square, [3, 4, 5]))
+```
+
+A) `[9, 16, 25]`
+B) `[9, 16, 25]` but in non-deterministic order
+C) `TypeError` — `Pool.map` does not accept a plain function
+D) `[9, 16, 25]` only if there are at least 3 idle CPU cores
+
+---
+
+**Q46.** How does `multiprocessing.Process` differ from `threading.Thread` in terms of memory?
+
+A) Both share the same address space with the parent
+B) Each `Process` gets its own address space (forked copy); threads share the parent's address space
+C) Each `Thread` gets its own address space; processes share memory
+D) Both use entirely separate address spaces
+
+---
+
+**Q47.** What is the output?
+
+```python
+x = []
+
+def outer():
+    x.append(1)
+    def inner():
+        x.append(2)
+    inner()
+
+outer()
+print(x)
+```
+
+A) `[1]`
+B) `[]`
+C) `[1, 2]`
+D) `UnboundLocalError`
+
+---
+
+**Q48.** A `try` block raises `KeyboardInterrupt`. The code has `except Exception:`. What happens?
+
+A) It is caught — all exceptions ultimately inherit from `Exception`
+B) It is caught and the program exits gracefully via the handler
+C) It is silently ignored
+D) It is NOT caught — `KeyboardInterrupt` inherits from `BaseException`, not `Exception`
+
+---
+
+**Q49.** What does the `nonlocal` keyword do?
+
+A) Allows a nested function to rebind a variable in its enclosing (non-global) function's scope
+B) Declares a variable as module-level
+C) Prevents a variable from being visible outside the current function
+D) Creates a new variable that shadows the outer binding
+
+---
+
+**Q50.** What is the output?
+
+```python
+def make_counter():
+    count = 0
+    def counter():
+        nonlocal count
+        count += 1
+        return count
+    return counter
+
+c = make_counter()
+print(c(), c(), c())
+```
+
+A) `0 0 0`
+B) `1 2 3`
+C) `1 1 1`
+D) `UnboundLocalError`
+
+---

@@ -361,3 +361,93 @@ C) Saves the output of `ls -l` to a temp file, then `grep` reads that file
 D) Connects the stdout of `ls -l` directly to the stdin of `grep`, without an intermediate file
 
 ---
+
+**Q41.** Which Linux namespace type gives a container its own process ID tree with a private PID 1?
+
+A) UTS namespace
+B) Net namespace
+C) PID namespace
+D) IPC namespace
+
+---
+
+**Q42.** When you type `ls -l /tmp` in bash, which sequence of operations occurs?
+
+A) The shell directly calls the kernel to list the directory without forking
+B) The shell sends the command to a background daemon for execution
+C) The kernel's built-in command interpreter handles it directly
+D) The shell calls `fork()`, the child calls `exec()` with `/bin/ls`, the kernel runs `ls`, output is written to stdout, then the child exits
+
+---
+
+**Q43.** What does `systemctl disable --now nginx` do?
+
+A) Stops the nginx service immediately AND removes the symlinks that would start it at next boot
+B) Stops nginx but leaves the boot symlinks in place
+C) Removes the boot symlinks but does not stop the currently running service
+D) Deletes the nginx unit file from disk
+
+---
+
+**Q44.** `df -h` shows a filesystem at 95% full, but `du -sh /` accounts for far less data than the disk capacity. What is the most likely explanation?
+
+A) `df` includes swap space in its measurement
+B) Files were deleted but are still held open by a running process, keeping the blocks allocated while `du` cannot see them
+C) `/proc` and `/sys` consume disk space that `du` misses
+D) `df` counts inodes, not actual data blocks
+
+---
+
+**Q45.** When you run `rm file.txt`, what precisely happens at the filesystem level?
+
+A) The inode and data blocks are immediately freed
+B) The file is moved to a hidden `.trash` directory
+C) The directory entry is removed and the inode's link count is decremented; inode and data blocks are freed only when the count reaches 0
+D) The data blocks are zeroed out before being freed for security
+
+---
+
+**Q46.** Why can hard links NOT span different filesystems (e.g. linking from `/` to `/mnt/data`)?
+
+A) It is a security restriction the kernel enforces to prevent privilege escalation
+B) Different filesystems use incompatible on-disk formats
+C) The kernel simply has not implemented cross-filesystem hard links yet
+D) Inode numbers are only unique within a single filesystem; a hard link on a different filesystem would reference an arbitrary or wrong inode
+
+---
+
+**Q47.** What does `chmod +x script.sh` do?
+
+A) Adds execute permission for the owner, group, and others (equivalent to `chmod a+x`)
+B) Adds execute permission for the owner only
+C) Sets permissions to exactly `--x--x--x`, removing all read and write bits
+D) Removes execute permission from all
+
+---
+
+**Q48.** What does `chown -R alice:developers /project` do?
+
+A) Changes only `/project`'s owner to `alice` and group to `developers`
+B) Recursively changes the owner to `alice` and the group to `developers` for `/project` and everything inside it
+C) Only changes the group; `-R` is not valid with `chown`
+D) Grants `alice` and `developers` read/write access via ACLs
+
+---
+
+**Q49.** In `free -h` output, what does the "available" column represent?
+
+A) The same as "free" — completely unused physical RAM
+B) Total RAM minus the size of swap
+C) An estimate of memory available to new processes without swapping, including reclaimable page cache and buffers
+D) The maximum RAM the system could use if all swap were disabled
+
+---
+
+**Q50.** A container is started with `--memory=256m`. Its process keeps allocating memory and exceeds the limit. What happens?
+
+A) The container is paused until other containers release memory
+B) The container is allowed to exceed the limit temporarily, then CPU-throttled as a penalty
+C) The container is stopped and automatically restarted by the runtime
+D) The kernel OOM killer terminates a process inside the container's cgroup to bring usage back under the limit
+
+---

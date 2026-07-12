@@ -13,27 +13,31 @@ Usage:
         ...
 """
 
-from subprocess import call
 import threading
 import time
-from typing import TypedDict
 from functools import wraps
 
 
 def ttl_cache(seconds: int):
     def decorator(func):
         global_cache = {}
+
         @wraps(func)
         def caching(*args, **kargs):
-            
-            if (entry := f"{args},{kargs}") not in global_cache.keys() or time.time() - global_cache[entry][1] >= seconds:
+
+            if (
+                entry := f"{args},{kargs}"
+            ) not in global_cache.keys() or time.time() - global_cache[entry][
+                1
+            ] >= seconds:
                 if entry in global_cache:
                     print(time.time() - global_cache[entry][1] >= seconds)
 
-                answer = func(*args,**kargs)
+                answer = func(*args, **kargs)
                 global_cache[entry] = (answer, time.time())
 
             return global_cache[entry][0]
+
         return caching
 
     return decorator
@@ -55,7 +59,9 @@ def test_basic_caching():
 
     assert compute(5) == 10
     assert compute(5) == 10
-    assert call_count == 1, f"Should only call the function once within TTL, it was called {call_count}"
+    assert call_count == 1, (
+        f"Should only call the function once within TTL, it was called {call_count}"
+    )
 
 
 def test_cache_expiry():
@@ -105,12 +111,15 @@ def test_thread_safety():
     # subsequent calls must use the cache.
     count_after = call_count
     slow_compute(1)
+    test_different_args_have_separate_caches()
     assert call_count == count_after, "Cached result should be returned"
 
 
 if __name__ == "__main__":
     test_basic_caching()
     test_cache_expiry()
+    test_different_args_have_separate_caches()
+    test_different_args_have_separate_caches()
     test_different_args_have_separate_caches()
     test_thread_safety()
     print("All tests passed!")
